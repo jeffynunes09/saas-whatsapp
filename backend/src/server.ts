@@ -15,7 +15,14 @@ import { errorMiddleware } from './presentation/middlewares/errorMiddleware';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+const allowedOrigin = process.env.ALLOWED_ORIGIN ?? 'http://localhost:3001';
+app.use(cors({ origin: allowedOrigin }));
+
+// Raw body para o webhook Kiwify (deve vir ANTES do express.json global)
+// Necessário para validação HMAC: o body-parser marca req._body=true,
+// fazendo o express.json subsequente pular a rota.
+app.use('/webhooks/kiwify', express.raw({ type: '*/*' }));
+
 app.use(express.json({ limit: '10mb' }));
 
 app.use('/api/auth', authRoutes);

@@ -27,6 +27,8 @@ export class FCMProvider implements INotificationProvider {
       bot_failed: { title: 'Atenção!', body: 'O bot não conseguiu resolver uma conversa.' },
       new_conversation: { title: 'Nova conversa', body: 'Um cliente iniciou uma conversa.' },
       whatsapp_disconnected: { title: 'WhatsApp desconectado', body: 'Reconecte seu número no app.' },
+      new_appointment: { title: 'Novo agendamento', body: 'Um cliente fez um agendamento pelo bot.' },
+      new_order: { title: 'Novo pedido', body: 'Um cliente fez um pedido pelo bot.' },
     };
 
     const notification = notificationMap[type];

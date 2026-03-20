@@ -33,12 +33,15 @@ authRoutes.post('/register', async (req, res) => {
   const subscriptionRepo = new SubscriptionSupabaseRepository();
   const existing = await subscriptionRepo.findByEmail(parsed.data.email);
   if (!existing) {
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + 7);
     await subscriptionRepo.save({
       id: uuidv4(),
       email: parsed.data.email,
       name: parsed.data.name,
       plan: 'starter',
       status: 'trial',
+      trialEndsAt,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -71,12 +74,15 @@ authRoutes.post('/login', async (req, res) => {
     const subscriptionRepo = new SubscriptionSupabaseRepository();
     const existing = await subscriptionRepo.findByEmail(parsed.data.email);
     if (!existing) {
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + 7);
       await subscriptionRepo.save({
         id: uuidv4(),
         email: parsed.data.email,
         name: (data.user.user_metadata?.name as string | undefined) ?? parsed.data.email.split('@')[0],
         plan: 'starter',
         status: 'trial',
+        trialEndsAt,
         createdAt: new Date(),
         updatedAt: new Date(),
       });

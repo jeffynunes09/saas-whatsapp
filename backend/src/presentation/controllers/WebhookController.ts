@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import { SendMessageUC } from '../../application/use-cases/SendMessageUC';
 import { ManageSubscriptionUC } from '../../application/use-cases/ManageSubscriptionUC';
 import { AgentSupabaseRepository } from '../../infrastructure/database/supabase/AgentSupabaseRepository';
@@ -28,6 +29,13 @@ export class WebhookController {
   }
 
   async evolutionWebhook(req: Request, res: Response): Promise<void> {
+    // Valida que a requisição vem do Evolution API (apikey no header)
+    const apiKey = process.env.EVOLUTION_API_KEY;
+    if (apiKey && req.headers['apikey'] !== apiKey) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
     res.json({ ok: true }); // responde imediatamente para o Evolution API não retentar
 
     const { event, instance, data } = req.body;
@@ -110,8 +118,47 @@ export class WebhookController {
     }
   }
 
+  private validateKiwifyHMAC(rawBody: Buffer, signature: string | undefined): boolean {
+    const secret = process.env.KIWIFY_SECRET;
+    if (!secret) {
+      console.warn('[kiwify] KIWIFY_SECRET não configurado — validação HMAC desativada');
+      return true;
+    }
+    if (!signature) return false;
+
+    const expected = crypto
+      .createHmac('sha256', secret)
+      .update(rawBody)
+      .digest('hex');
+
+    try {
+      return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+    } catch {
+      return false;
+    }
+  }
+
   async kiwifyWebhook(req: Request, res: Response): Promise<void> {
-    const { event, subscription } = req.body;
+    // req.body é Buffer (express.raw aplicado em server.ts antes do express.json)
+    const rawBody = req.body as Buffer;
+    const signature = req.headers['x-kiwify-signature'] as string | undefined;
+
+    if (!this.validateKiwifyHMAC(rawBody, signature)) {
+      console.warn('[kiwify] Assinatura HMAC inválida — request rejeitado');
+      res.status(401).json({ error: 'Invalid signature' });
+      return;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let parsed: { event: string; subscription: any };
+    try {
+      parsed = JSON.parse(rawBody.toString('utf8'));
+    } catch {
+      res.status(400).json({ error: 'Invalid JSON' });
+      return;
+    }
+
+    const { event, subscription } = parsed;
 
     const planMap: Record<string, 'starter' | 'pro' | 'business'> = {
       starter: 'starter',

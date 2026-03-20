@@ -35,6 +35,13 @@ export async function authMiddleware(req: AuthRequest, res: Response, next: Next
     return;
   }
 
+  // Expira trial automaticamente se prazo passou
+  if (subscriber.status === 'trial' && subscriber.trialEndsAt && subscriber.trialEndsAt < new Date()) {
+    await subscriptionRepo.updateStatus(subscriber.id, 'inactive');
+    res.status(403).json({ error: 'Período de trial encerrado. Assine um plano para continuar.' });
+    return;
+  }
+
   req.subscriberId = subscriber.id;
   next();
 }

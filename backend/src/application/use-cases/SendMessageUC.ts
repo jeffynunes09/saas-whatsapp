@@ -203,7 +203,7 @@ export class SendMessageUC {
           appointmentId: appointment.id,
           contactPhone: input.contactPhone,
           contactName: input.contactName ?? '',
-          data: execution.collectedData,
+          collectedData: JSON.stringify(execution.collectedData),
         });
       }
 
@@ -213,7 +213,7 @@ export class SendMessageUC {
           orderId: order.id,
           contactPhone: input.contactPhone,
           contactName: input.contactName ?? '',
-          data: execution.collectedData,
+          collectedData: JSON.stringify(execution.collectedData),
         });
       }
 

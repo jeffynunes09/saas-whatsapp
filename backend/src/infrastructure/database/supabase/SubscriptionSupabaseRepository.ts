@@ -71,6 +71,7 @@ export class SubscriptionSupabaseRepository implements ISubscriptionRepository {
       kiwifyCustomerId: row.kiwify_customer_id as string | undefined,
       kiwifySubscriptionId: row.kiwify_subscription_id as string | undefined,
       renewsAt: row.renews_at ? new Date(row.renews_at as string) : undefined,
+      trialEndsAt: row.trial_ends_at ? new Date(row.trial_ends_at as string) : undefined,
       createdAt: new Date(row.created_at as string),
       updatedAt: new Date(row.updated_at as string),
     };
@@ -86,6 +87,7 @@ export class SubscriptionSupabaseRepository implements ISubscriptionRepository {
       kiwify_customer_id: s.kiwifyCustomerId,
       kiwify_subscription_id: s.kiwifySubscriptionId,
       renews_at: s.renewsAt?.toISOString(),
+      trial_ends_at: s.trialEndsAt?.toISOString(),
     };
   }
 }

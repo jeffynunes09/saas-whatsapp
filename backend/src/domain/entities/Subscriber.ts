@@ -10,6 +10,7 @@ export interface Subscriber {
   kiwifyCustomerId?: string;
   kiwifySubscriptionId?: string;
   renewsAt?: Date;
+  trialEndsAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
