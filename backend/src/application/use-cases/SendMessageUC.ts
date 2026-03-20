@@ -4,9 +4,13 @@ import { ILLMProvider } from '../ports/ILLMProvider';
 import { IWhatsAppProvider } from '../ports/IWhatsAppProvider';
 import { INotificationProvider } from '../ports/INotificationProvider';
 import { IAgentIntentRepository } from '../ports/IAgentIntentRepository';
+import { IAppointmentRepository } from '../ports/IAppointmentRepository';
+import { IOrderRepository } from '../ports/IOrderRepository';
 import { IntentDetectionService } from '../services/IntentDetectionService';
 import { IntentFlowService } from '../services/IntentFlowService';
 import { AgentIntentSupabaseRepository } from '../../infrastructure/database/supabase/AgentIntentSupabaseRepository';
+import { AppointmentSupabaseRepository } from '../../infrastructure/database/supabase/AppointmentSupabaseRepository';
+import { OrderSupabaseRepository } from '../../infrastructure/database/supabase/OrderSupabaseRepository';
 import { AgentIntent } from '../../domain/entities/AgentIntent';
 import { IntentExecution } from '../../domain/entities/IntentExecution';
 import { Message } from '../../domain/entities/Conversation';
@@ -22,6 +26,8 @@ interface IncomingMessage {
 
 export class SendMessageUC {
   private intentRepo: IAgentIntentRepository;
+  private appointmentRepo: IAppointmentRepository;
+  private orderRepo: IOrderRepository;
   private intentDetectionService: IntentDetectionService;
   private intentFlowService: IntentFlowService;
 
@@ -34,6 +40,8 @@ export class SendMessageUC {
     intentRepo?: IAgentIntentRepository,
   ) {
     this.intentRepo = intentRepo ?? new AgentIntentSupabaseRepository();
+    this.appointmentRepo = new AppointmentSupabaseRepository();
+    this.orderRepo = new OrderSupabaseRepository();
     this.intentDetectionService = new IntentDetectionService(llmProvider);
     this.intentFlowService = new IntentFlowService();
   }
@@ -116,15 +124,12 @@ export class SendMessageUC {
           timestamp: new Date(),
         });
 
-        if (
-          flowResult.execution.status === 'completed' &&
-          flowResult.execution.intentType === 'handoff'
-        ) {
-          await this.conversationRepo.update(conversation.id, { status: 'escalated' });
-          await this.notificationProvider.sendPush(input.subscriberId, 'bot_failed', {
-            contactPhone: input.contactPhone,
-            conversationId: conversation.id,
-          });
+        if (flowResult.execution.status === 'completed') {
+          await this.handleIntentCompletion(
+            flowResult.execution,
+            input,
+            conversation.id,
+          );
         }
       }
 
@@ -174,6 +179,53 @@ export class SendMessageUC {
       });
     } else {
       await this.conversationRepo.update(conversation.id, { attemptCount: newAttempts });
+    }
+  }
+
+  private async handleIntentCompletion(
+    execution: IntentExecution,
+    input: IncomingMessage,
+    conversationId: string,
+  ): Promise<void> {
+    const base = {
+      subscriberId: input.subscriberId,
+      conversationId,
+      contactPhone: input.contactPhone,
+      contactName: input.contactName,
+      collectedData: execution.collectedData,
+      status: 'pending' as const,
+    };
+
+    try {
+      if (execution.intentType === 'schedule') {
+        const appointment = await this.appointmentRepo.save(base);
+        await this.notificationProvider.sendPush(input.subscriberId, 'new_appointment', {
+          appointmentId: appointment.id,
+          contactPhone: input.contactPhone,
+          contactName: input.contactName ?? '',
+          data: execution.collectedData,
+        });
+      }
+
+      if (execution.intentType === 'order') {
+        const order = await this.orderRepo.save(base);
+        await this.notificationProvider.sendPush(input.subscriberId, 'new_order', {
+          orderId: order.id,
+          contactPhone: input.contactPhone,
+          contactName: input.contactName ?? '',
+          data: execution.collectedData,
+        });
+      }
+
+      if (execution.intentType === 'handoff') {
+        await this.conversationRepo.update(conversationId, { status: 'escalated' });
+        await this.notificationProvider.sendPush(input.subscriberId, 'bot_failed', {
+          contactPhone: input.contactPhone,
+          conversationId,
+        });
+      }
+    } catch (err) {
+      console.error(`[SendMessageUC] handleIntentCompletion (${execution.intentType}) falhou:`, err);
     }
   }
 
