@@ -9,6 +9,7 @@ const navItems = [
   { href: '/conversations', label: 'Conversas' },
   { href: '/appointments', label: 'Agendamentos' },
   { href: '/orders', label: 'Pedidos' },
+  { href: '/intents', label: 'Comportamentos' },
   { href: '/agent', label: 'Agente IA' },
   { href: '/whatsapp', label: 'WhatsApp' },
   { href: '/subscription', label: 'Plano' },
