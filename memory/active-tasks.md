@@ -42,3 +42,13 @@
 - [x] Web mobile-first com BottomNav + Sidebar desktop
 - [x] Middleware de proteção de rotas (Edge, via cookie)
 - [x] Repositório Git público: github.com/jeffynunes09/saas-whatsapp
+- [x] Evolution API v1.8.7 rodando via Docker (corrigido crash loop do v2)
+- [x] Postgres healthcheck + init SQL criando role `user` para Evolution API
+- [x] QR Code funcional (EvolutionAPIProvider corrigido para v1 endpoints)
+- [x] Alternativa de login por código de 8 dígitos (pairing code) no frontend
+- [x] Botão desconectar WhatsApp na página de status
+- [x] Webhook configurado automaticamente ao criar/reconectar instância
+- [x] Parsing de subscriberId direto do nome da instância (sem tabela whatsapp_instances)
+- [x] Resolução de JIDs `@lid` via mapa populado por contacts.upsert
+- [x] Troca de OpenAI → Groq (llama-3.1-8b-instant, gratuito) — sendMessage v1 format corrigido
+- [x] Bot respondendo mensagens de ponta a ponta (testado e confirmado)
