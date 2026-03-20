@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useWhatsApp } from '@/hooks/useWhatsApp';
 import { whatsappService } from '@/services/whatsappService';
+import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -16,9 +17,11 @@ const statusConfig = {
 };
 
 export default function WhatsAppPage() {
+  const router = useRouter();
   const { qrCode, status, loading, refresh } = useWhatsApp();
   const config = statusConfig[status];
 
+  const [disconnecting, setDisconnecting] = useState(false);
   const [mode, setMode] = useState<'qr' | 'pairing'>('qr');
   const [phone, setPhone] = useState('');
   const [pairingCode, setPairingCode] = useState('');
@@ -122,10 +125,26 @@ export default function WhatsAppPage() {
         )}
 
         {status === 'connected' && (
-          <Card className="text-center py-8">
-            <p className="text-5xl mb-3">✅</p>
+          <Card className="text-center py-8 flex flex-col items-center gap-4">
+            <p className="text-5xl">✅</p>
             <p className="font-semibold text-gray-800">WhatsApp conectado!</p>
-            <p className="text-sm text-gray-500 mt-1">Seu agente está pronto para atender</p>
+            <p className="text-sm text-gray-500">Seu agente está pronto para atender</p>
+            <Button
+              variant="danger"
+              loading={disconnecting}
+              className="w-auto px-8 mt-2"
+              onClick={async () => {
+                setDisconnecting(true);
+                try {
+                  await whatsappService.disconnect();
+                  router.refresh();
+                } finally {
+                  setDisconnecting(false);
+                }
+              }}
+            >
+              Desconectar WhatsApp
+            </Button>
           </Card>
         )}
       </div>

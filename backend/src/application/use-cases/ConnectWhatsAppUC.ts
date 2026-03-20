@@ -7,16 +7,23 @@ export class ConnectWhatsAppUC {
     private notificationProvider: INotificationProvider,
   ) {}
 
-  async getOrCreateInstance(instanceName: string): Promise<{ qrCode: string }> {
+  async getOrCreateInstance(instanceName: string, webhookUrl?: string): Promise<{ qrCode: string }> {
     const status = await this.whatsappProvider.getStatus(instanceName);
-    if (status === 'connected') return { qrCode: '' };
+    if (status === 'connected') {
+      if (webhookUrl) await this.whatsappProvider.configureWebhook(instanceName, webhookUrl).catch(() => {});
+      return { qrCode: '' };
+    }
 
     // Tenta obter QR de instância existente
     const qrCode = await this.whatsappProvider.getQRCode(instanceName);
-    if (qrCode) return { qrCode };
+    if (qrCode) {
+      if (webhookUrl) await this.whatsappProvider.configureWebhook(instanceName, webhookUrl).catch(() => {});
+      return { qrCode };
+    }
 
-    // Instância não existe — cria e retorna o QR
+    // Instância não existe — cria, configura webhook e retorna o QR
     const created = await this.whatsappProvider.createInstance(instanceName);
+    if (webhookUrl) await this.whatsappProvider.configureWebhook(instanceName, webhookUrl).catch(() => {});
     return { qrCode: created.qrCode };
   }
 

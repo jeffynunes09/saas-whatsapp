@@ -6,4 +6,5 @@ export interface IWhatsAppProvider {
   getStatus(instanceName: string): Promise<'connected' | 'disconnected' | 'connecting'>;
   sendMessage(instanceName: string, phone: string, text: string): Promise<void>;
   deleteInstance(instanceName: string): Promise<void>;
+  configureWebhook(instanceName: string, webhookUrl: string): Promise<void>;
 }

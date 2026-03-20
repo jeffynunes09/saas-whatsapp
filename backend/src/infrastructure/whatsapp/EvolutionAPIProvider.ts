@@ -62,9 +62,23 @@ export class EvolutionAPIProvider implements IWhatsAppProvider {
   }
 
   async sendMessage(instanceName: string, phone: string, text: string): Promise<void> {
+    const number = phone.includes('@') ? phone : phone.replace(/\D/g, '');
     await axios.post(
       `${this.baseURL}/message/sendText/${instanceName}`,
-      { number: phone, text },
+      { number, textMessage: { text } },
+      { headers: this.headers },
+    );
+  }
+
+  async configureWebhook(instanceName: string, webhookUrl: string): Promise<void> {
+    await axios.post(
+      `${this.baseURL}/webhook/set/${instanceName}`,
+      {
+        url: webhookUrl,
+        webhook_by_events: false,
+        webhook_base64: true,
+        events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'CONTACTS_UPSERT', 'CONTACTS_UPDATE'],
+      },
       { headers: this.headers },
     );
   }

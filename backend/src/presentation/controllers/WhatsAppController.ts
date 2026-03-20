@@ -12,7 +12,8 @@ export class WhatsAppController {
   async getQRCode(req: AuthRequest, res: Response): Promise<void> {
     try {
       const instanceName = `sub_${req.subscriberId}`;
-      const result = await connectWhatsAppUC.getOrCreateInstance(instanceName);
+      const webhookUrl = `${process.env.BACKEND_URL ?? 'http://host.docker.internal:3000'}/webhooks/evolution`;
+      const result = await connectWhatsAppUC.getOrCreateInstance(instanceName, webhookUrl);
       res.json(result);
     } catch (err) {
       console.error('[getQRCode]', err);
@@ -28,6 +29,17 @@ export class WhatsAppController {
     } catch (err) {
       console.error('[getStatus]', err);
       res.json({ status: 'disconnected' });
+    }
+  }
+
+  async disconnect(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const instanceName = `sub_${req.subscriberId}`;
+      await whatsappProvider.deleteInstance(instanceName);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('[disconnect]', err);
+      res.status(500).json({ error: 'Erro ao desconectar' });
     }
   }
 
