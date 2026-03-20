@@ -7,6 +7,7 @@ import { SubscriptionSupabaseRepository } from '../../infrastructure/database/su
 import { GroqProvider } from '../../infrastructure/llm/GroqProvider';
 import { EvolutionAPIProvider } from '../../infrastructure/whatsapp/EvolutionAPIProvider';
 import { FCMProvider } from '../../infrastructure/notifications/FCMProvider';
+import { QRCodeStore } from '../../infrastructure/cache/QRCodeStore';
 
 // Mapa global @lid → JID real (@s.whatsapp.net), populado via contacts.upsert
 const lidMap = new Map<string, string>();
@@ -30,6 +31,7 @@ export class WebhookController {
     res.json({ ok: true }); // responde imediatamente para o Evolution API não retentar
 
     const { event, instance, data } = req.body;
+    console.log(`[webhook] event="${event}" instance="${instance}" data=${JSON.stringify(data).slice(0, 200)}`);
 
     // instance name = "sub_{subscriberId}"
     const subscriberId = typeof instance === 'string' && instance.startsWith('sub_')
@@ -37,6 +39,22 @@ export class WebhookController {
       : null;
 
     if (!subscriberId) return;
+
+    const eventLower = typeof event === 'string' ? event.toLowerCase() : '';
+
+    if (eventLower === 'qrcode.updated' || eventLower === 'qrcode_updated') {
+      const qrCode = data?.qrcode?.base64 ?? data?.base64 ?? '';
+      console.log(`[webhook] qrcode event para ${instance}, base64 length: ${qrCode.length}`);
+      if (qrCode) {
+        QRCodeStore.set(instance, qrCode);
+        console.log(`[webhook] QR code armazenado para ${instance}`);
+      }
+      return;
+    }
+
+    if (eventLower === 'connection.update' && data?.state === 'open') {
+      QRCodeStore.clear(instance);
+    }
 
     // Popula mapa @lid → @s.whatsapp.net a partir de eventos de contato
     if (event === 'contacts.upsert' || event === 'contacts.update') {
@@ -66,21 +84,29 @@ export class WebhookController {
         : rawJid;
 
       if (contactPhone.endsWith('@lid')) {
-        // @lid ainda não resolvido — tenta buscar nos contatos do Evolution API
-        console.warn(`[webhook] @lid não resolvido: ${contactPhone}. Aguardando contacts.upsert.`);
+        console.warn(`[webhook] @lid não resolvido: ${contactPhone}. Mensagem ignorada.`);
+        return
       }
 
-      await this.sendMessageUC.execute({
-        instanceName: instance,
-        subscriberId,
-        contactPhone,
-        contactName: data.pushName,
-        text,
-      });
+      try {
+        await this.sendMessageUC.execute({
+          instanceName: instance,
+          subscriberId,
+          contactPhone,
+          contactName: data.pushName,
+          text,
+        });
+      } catch (err) {
+        console.error('[webhook] sendMessageUC error:', err);
+      }
     }
 
     if (event === 'connection.update' && data?.state === 'close') {
-      await new FCMProvider().sendPush(subscriberId, 'whatsapp_disconnected', { instanceName: instance });
+      try {
+        await new FCMProvider().sendPush(subscriberId, 'whatsapp_disconnected', { instanceName: instance });
+      } catch (err) {
+        console.error('[webhook] FCM push error:', err);
+      }
     }
   }
 

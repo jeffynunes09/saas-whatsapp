@@ -19,6 +19,7 @@ export function useWhatsApp() {
     setLoading(true);
     try {
       const result = await whatsappService.getQRCode();
+      console.log(result)
       setQrCode(result.qrCode || null);
     } finally {
       setLoading(false);

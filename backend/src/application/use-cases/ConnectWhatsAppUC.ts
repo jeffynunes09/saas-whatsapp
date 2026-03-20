@@ -9,21 +9,24 @@ export class ConnectWhatsAppUC {
 
   async getOrCreateInstance(instanceName: string, webhookUrl?: string): Promise<{ qrCode: string }> {
     const status = await this.whatsappProvider.getStatus(instanceName);
+    console.log(`[ConnectWhatsAppUC] status de ${instanceName}: ${status}`);
+
     if (status === 'connected') {
       if (webhookUrl) await this.whatsappProvider.configureWebhook(instanceName, webhookUrl).catch(() => {});
       return { qrCode: '' };
     }
 
-    // Tenta obter QR de instância existente
-    const qrCode = await this.whatsappProvider.getQRCode(instanceName);
-    if (qrCode) {
-      if (webhookUrl) await this.whatsappProvider.configureWebhook(instanceName, webhookUrl).catch(() => {});
-      return { qrCode };
+    // Instância em connecting — QR está sendo gerado, aguarda webhook QRCODE_UPDATED
+    if (status === 'connecting') {
+      return { qrCode: '' };
     }
 
-    // Instância não existe — cria, configura webhook e retorna o QR
-    const created = await this.whatsappProvider.createInstance(instanceName);
-    if (webhookUrl) await this.whatsappProvider.configureWebhook(instanceName, webhookUrl).catch(() => {});
+    // Instância desconectada — logout + delete para remover completamente, depois cria fresca
+    console.log(`[ConnectWhatsAppUC] recriando instância ${instanceName}`);
+    await this.whatsappProvider.logoutInstance(instanceName).catch(() => {});
+    await this.whatsappProvider.deleteInstance(instanceName).catch(() => {});
+    const created = await this.whatsappProvider.createInstance(instanceName, webhookUrl);
+    console.log(`[ConnectWhatsAppUC] instância criada, qrCode length: ${created.qrCode.length}`);
     return { qrCode: created.qrCode };
   }
 

@@ -3,6 +3,7 @@ import { AuthRequest } from '../middlewares/authMiddleware';
 import { ConnectWhatsAppUC } from '../../application/use-cases/ConnectWhatsAppUC';
 import { EvolutionAPIProvider } from '../../infrastructure/whatsapp/EvolutionAPIProvider';
 import { FCMProvider } from '../../infrastructure/notifications/FCMProvider';
+import { QRCodeStore } from '../../infrastructure/cache/QRCodeStore';
 
 const whatsappProvider = new EvolutionAPIProvider();
 const notificationProvider = new FCMProvider();
@@ -13,8 +14,24 @@ export class WhatsAppController {
     try {
       const instanceName = `sub_${req.subscriberId}`;
       const webhookUrl = `${process.env.BACKEND_URL ?? 'http://host.docker.internal:3000'}/webhooks/evolution`;
-      const result = await connectWhatsAppUC.getOrCreateInstance(instanceName, webhookUrl);
-      res.json(result);
+
+      // Serve do cache se disponível
+      const cached = QRCodeStore.get(instanceName);
+      if (cached) {
+        res.json({ qrCode: cached });
+        return;
+      }
+
+      // Garante que a instância existe, webhook configurado, e tenta obter QR sincronamente
+      const { qrCode: freshQR } = await connectWhatsAppUC.getOrCreateInstance(instanceName, webhookUrl);
+      if (freshQR) {
+        QRCodeStore.set(instanceName, freshQR);
+        res.json({ qrCode: freshQR });
+        return;
+      }
+
+      // QR ainda não chegou — frontend voltará a perguntar no polling
+      res.json({ qrCode: '' });
     } catch (err) {
       console.error('[getQRCode]', err);
       res.status(500).json({ error: 'Erro ao obter QR Code' });
@@ -36,6 +53,7 @@ export class WhatsAppController {
     try {
       const instanceName = `sub_${req.subscriberId}`;
       await whatsappProvider.deleteInstance(instanceName);
+      QRCodeStore.clear(instanceName);
       res.json({ ok: true });
     } catch (err) {
       console.error('[disconnect]', err);

@@ -14,34 +14,52 @@ export class EvolutionAPIProvider implements IWhatsAppProvider {
     return { apikey: this.apiKey };
   }
 
-  async createInstance(instanceName: string): Promise<{ instanceName: string; qrCode: string }> {
+  async createInstance(instanceName: string, webhookUrl?: string): Promise<{ instanceName: string; qrCode: string }> {
+    const payload: Record<string, unknown> = {
+      instanceName,
+      qrcode: true,
+      integration: 'WHATSAPP-BAILEYS',
+    };
+    if (webhookUrl) {
+      payload.webhook = {
+        enabled: true,
+        url: webhookUrl,
+        byEvents: false,
+        base64: true,
+        events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'CONTACTS_UPSERT', 'CONTACTS_UPDATE', 'QRCODE_UPDATED'],
+      };
+    }
     try {
       const { data } = await axios.post(
         `${this.baseURL}/instance/create`,
-        { instanceName, qrcode: true, integration: 'WHATSAPP-BAILEYS' },
+        payload,
         { headers: this.headers },
       );
-      console.log(data)
-      return { instanceName, qrCode: data.qrcode?.base64 ?? '' };
-    } catch (err: any) {
-      // Instance already exists — fetch QR from existing instance
-      if (err?.response?.status === 403 || err?.response?.status === 409) {
-        const qrCode = await this.getQRCode(instanceName);
-        return { instanceName, qrCode };
+      console.log(`[EvolutionAPI] createInstance response:`, JSON.stringify(data).slice(0, 500));
+      const qrCode = data?.qrcode?.base64 ?? '';
+      return { instanceName, qrCode };
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 403 || status === 409) {
+        console.log(`[EvolutionAPI] createInstance: instância já existe (${status})`);
+        return { instanceName, qrCode: '' };
       }
       throw err;
     }
   }
 
   async getQRCode(instanceName: string): Promise<string> {
+    // v2: /instance/connect retorna o QR no body E envia via webhook QRCODE_UPDATED
     try {
       const { data } = await axios.get(
         `${this.baseURL}/instance/connect/${instanceName}`,
         { headers: this.headers },
       );
-      // v1: { base64 } | v2: { qrcode: { base64 } }
-      return data.base64 ?? data.qrcode?.base64 ?? '';
-    } catch {
+      console.log(`[EvolutionAPI] connect response:`, JSON.stringify(data).slice(0, 300));
+      const base64 = data?.qrcode?.base64 ?? data?.base64 ?? '';
+      return base64;
+    } catch (err) {
+      console.warn(`[EvolutionAPI] connect failed for ${instanceName}:`, (err as { response?: { status?: number; data?: unknown } })?.response?.status, (err as { response?: { status?: number; data?: unknown } })?.response?.data);
       return '';
     }
   }
@@ -52,7 +70,7 @@ export class EvolutionAPIProvider implements IWhatsAppProvider {
         `${this.baseURL}/instance/connectionState/${instanceName}`,
         { headers: this.headers },
       );
-      const state = data.instance?.state;
+      const state = data.instance?.state ?? data.state;
       if (state === 'open') return 'connected';
       if (state === 'connecting') return 'connecting';
       return 'disconnected';
@@ -63,24 +81,40 @@ export class EvolutionAPIProvider implements IWhatsAppProvider {
 
   async sendMessage(instanceName: string, phone: string, text: string): Promise<void> {
     const number = phone.includes('@') ? phone : phone.replace(/\D/g, '');
-    await axios.post(
-      `${this.baseURL}/message/sendText/${instanceName}`,
-      { number, textMessage: { text } },
-      { headers: this.headers },
-    );
+    try {
+      // v2 usa { number, text } sem o wrapper textMessage
+      await axios.post(
+        `${this.baseURL}/message/sendText/${instanceName}`,
+        { number, text },
+        { headers: this.headers },
+      );
+    } catch (err: unknown) {
+      const responseData = (err as { response?: { data?: { response?: { message?: { exists?: boolean }[] } } } })?.response?.data;
+      const isLidBlock = responseData?.response?.message?.some((m) => m.exists === false);
+      if (isLidBlock) {
+        console.warn(`[EvolutionAPI] @lid não suportado para envio: ${number}`);
+        return;
+      }
+      console.error(`[EvolutionAPI] sendMessage failed for ${number}`, (err as { response?: { status?: number } })?.response?.status);
+      throw err;
+    }
   }
 
   async configureWebhook(instanceName: string, webhookUrl: string): Promise<void> {
-    await axios.post(
+    const { data } = await axios.post(
       `${this.baseURL}/webhook/set/${instanceName}`,
       {
-        url: webhookUrl,
-        webhook_by_events: false,
-        webhook_base64: true,
-        events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'CONTACTS_UPSERT', 'CONTACTS_UPDATE'],
+        webhook: {
+          enabled: true,
+          url: webhookUrl,
+          byEvents: false,
+          base64: true,
+          events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'CONTACTS_UPSERT', 'CONTACTS_UPDATE', 'QRCODE_UPDATED'],
+        },
       },
       { headers: this.headers },
     );
+    console.log(`[EvolutionAPI] configureWebhook response:`, JSON.stringify(data).slice(0, 300));
   }
 
   async getPairingCode(instanceName: string, phoneNumber: string): Promise<string> {
@@ -90,6 +124,13 @@ export class EvolutionAPIProvider implements IWhatsAppProvider {
       { headers: this.headers },
     );
     return data.pairingCode ?? data.code ?? '';
+  }
+
+  async logoutInstance(instanceName: string): Promise<void> {
+    await axios.delete(
+      `${this.baseURL}/instance/logout/${instanceName}`,
+      { headers: this.headers },
+    );
   }
 
   async deleteInstance(instanceName: string): Promise<void> {
