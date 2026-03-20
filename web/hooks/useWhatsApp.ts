@@ -27,21 +27,38 @@ export function useWhatsApp() {
   };
 
   useEffect(() => {
-    fetchStatus().then((s) => {
-      if (s !== 'connected') fetchQRCode();
-      else setLoading(false);
-    });
+    let stopped = false;
 
-    pollingRef.current = setInterval(async () => {
+    const init = async () => {
       const s = await fetchStatus();
-      if (s === 'connected' && pollingRef.current) {
-        clearInterval(pollingRef.current);
-        setQrCode(null);
+      if (stopped) return;
+
+      if (s === 'connected') {
+        setLoading(false);
+        return; // já conectado — não inicia polling nem busca QR
       }
-    }, 5000);
+
+      // Não conectado: busca QR uma vez e inicia polling de status
+      fetchQRCode();
+
+      pollingRef.current = setInterval(async () => {
+        const current = await fetchStatus();
+        if (current === 'connected' && pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+          setQrCode(null);
+        }
+      }, 5000);
+    };
+
+    init();
 
     return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
+      stopped = true;
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
     };
   }, []);
 

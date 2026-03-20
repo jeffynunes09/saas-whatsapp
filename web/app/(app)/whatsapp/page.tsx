@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useWhatsApp } from '@/hooks/useWhatsApp';
 import { whatsappService } from '@/services/whatsappService';
-import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -17,7 +16,6 @@ const statusConfig = {
 };
 
 export default function WhatsAppPage() {
-  const router = useRouter();
   const { qrCode, status, loading, refresh } = useWhatsApp();
   const config = statusConfig[status];
 
@@ -137,7 +135,7 @@ export default function WhatsAppPage() {
                 setDisconnecting(true);
                 try {
                   await whatsappService.disconnect();
-                  router.refresh();
+                  window.location.reload();
                 } finally {
                   setDisconnecting(false);
                 }
