@@ -86,6 +86,7 @@ export class ConversationSupabaseRepository implements IConversationRepository {
       conversation_id: conversationId,
       role: message.role,
       content: message.content,
+      metadata: message.metadata ?? null,
       timestamp: message.timestamp.toISOString(),
     });
 
@@ -127,6 +128,7 @@ export class ConversationSupabaseRepository implements IConversationRepository {
         conversationId: m.conversation_id as string,
         role: m.role as Message['role'],
         content: m.content as string,
+        metadata: m.metadata as Record<string, unknown> | undefined,
         timestamp: new Date(m.timestamp as string),
       })),
       satisfactionRating: row.satisfaction_rating as Conversation['satisfactionRating'],

@@ -1,5 +1,5 @@
 export type ConversationStatus = 'open' | 'resolved' | 'escalated';
-export type MessageRole = 'user' | 'assistant';
+export type MessageRole = 'user' | 'assistant' | 'system';
 export type SatisfactionRating = 'positive' | 'negative' | null;
 
 export interface Message {
@@ -7,6 +7,7 @@ export interface Message {
   conversationId: string;
   role: MessageRole;
   content: string;
+  metadata?: Record<string, unknown>;
   timestamp: Date;
 }
 

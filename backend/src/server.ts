@@ -7,6 +7,7 @@ import { conversationRoutes } from './presentation/routes/conversation.routes';
 import { whatsappRoutes } from './presentation/routes/whatsapp.routes';
 import { subscriptionRoutes } from './presentation/routes/subscription.routes';
 import { webhookRoutes } from './presentation/routes/webhook.routes';
+import { intentRoutes } from './presentation/routes/intent.routes';
 import { errorMiddleware } from './presentation/middlewares/errorMiddleware';
 
 const app = express();
@@ -21,6 +22,7 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/webhooks', webhookRoutes);
+app.use('/api/agent/intents', intentRoutes);
 
 app.use(errorMiddleware);
 
