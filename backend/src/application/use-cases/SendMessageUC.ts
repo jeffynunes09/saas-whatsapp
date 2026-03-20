@@ -115,7 +115,7 @@ export class SendMessageUC {
         await this.conversationRepo.addMessage(conversation.id, {
           id: uuidv4(),
           conversationId: conversation.id,
-          role: 'system',
+          role: 'assistant',
           content: '[intent_state]',
           metadata: {
             type: 'intent_execution',
@@ -148,7 +148,7 @@ export class SendMessageUC {
 
     const systemPrompt = this.buildSystemPrompt(agent, activeIntents);
     const history = conversation.messages
-      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.metadata?.['type'] !== 'intent_execution')
       .slice(-10)
       .map((m) => ({
         role: m.role as 'user' | 'assistant',
@@ -232,7 +232,7 @@ export class SendMessageUC {
   private findActiveExecution(messages: Message[]): IntentExecution | null {
     const systemMessages = [...messages]
       .reverse()
-      .filter((m) => m.role === 'system' && m.metadata?.['type'] === 'intent_execution');
+      .filter((m) => m.metadata?.['type'] === 'intent_execution');
 
     if (systemMessages.length === 0) return null;
 
