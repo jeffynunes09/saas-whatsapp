@@ -8,3 +8,4 @@ const controller = new WhatsAppController();
 whatsappRoutes.use(authMiddleware);
 whatsappRoutes.get('/qrcode', (req, res) => controller.getQRCode(req as never, res));
 whatsappRoutes.get('/status', (req, res) => controller.getStatus(req as never, res));
+whatsappRoutes.post('/pairing-code', (req, res) => controller.getPairingCode(req as never, res));

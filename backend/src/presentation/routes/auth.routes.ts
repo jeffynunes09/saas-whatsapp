@@ -66,6 +66,25 @@ authRoutes.post('/login', async (req, res) => {
     return;
   }
 
+  // Garante que o subscriber existe na tabela (fallback para contas criadas diretamente no Supabase)
+  try {
+    const subscriptionRepo = new SubscriptionSupabaseRepository();
+    const existing = await subscriptionRepo.findByEmail(parsed.data.email);
+    if (!existing) {
+      await subscriptionRepo.save({
+        id: uuidv4(),
+        email: parsed.data.email,
+        name: (data.user.user_metadata?.name as string | undefined) ?? parsed.data.email.split('@')[0],
+        plan: 'starter',
+        status: 'trial',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+  } catch (err) {
+    console.error('[login] Erro ao garantir subscriber:', err);
+  }
+
   res.json({ user: data.user, session: data.session });
 });
 

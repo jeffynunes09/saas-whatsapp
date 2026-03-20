@@ -30,4 +30,22 @@ export class WhatsAppController {
       res.json({ status: 'disconnected' });
     }
   }
+
+  async getPairingCode(req: AuthRequest, res: Response): Promise<void> {
+    const { phoneNumber } = req.body;
+    if (!phoneNumber) {
+      res.status(400).json({ error: 'phoneNumber obrigatório' });
+      return;
+    }
+    try {
+      const instanceName = `sub_${req.subscriberId}`;
+      // Garante que a instância existe antes de pedir o pairing code
+      await connectWhatsAppUC.getOrCreateInstance(instanceName);
+      const pairingCode = await whatsappProvider.getPairingCode(instanceName, phoneNumber);
+      res.json({ pairingCode });
+    } catch (err) {
+      console.error('[getPairingCode]', err);
+      res.status(500).json({ error: 'Erro ao obter código de pareamento' });
+    }
+  }
 }

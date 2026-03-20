@@ -15,12 +15,22 @@ export class EvolutionAPIProvider implements IWhatsAppProvider {
   }
 
   async createInstance(instanceName: string): Promise<{ instanceName: string; qrCode: string }> {
-    const { data } = await axios.post(
-      `${this.baseURL}/instance/create`,
-      { instanceName, qrcode: true, integration: 'WHATSAPP-BAILEYS' },
-      { headers: this.headers },
-    );
-    return { instanceName, qrCode: data.qrcode?.base64 ?? '' };
+    try {
+      const { data } = await axios.post(
+        `${this.baseURL}/instance/create`,
+        { instanceName, qrcode: true, integration: 'WHATSAPP-BAILEYS' },
+        { headers: this.headers },
+      );
+      console.log(data)
+      return { instanceName, qrCode: data.qrcode?.base64 ?? '' };
+    } catch (err: any) {
+      // Instance already exists — fetch QR from existing instance
+      if (err?.response?.status === 403 || err?.response?.status === 409) {
+        const qrCode = await this.getQRCode(instanceName);
+        return { instanceName, qrCode };
+      }
+      throw err;
+    }
   }
 
   async getQRCode(instanceName: string): Promise<string> {
@@ -29,7 +39,8 @@ export class EvolutionAPIProvider implements IWhatsAppProvider {
         `${this.baseURL}/instance/connect/${instanceName}`,
         { headers: this.headers },
       );
-      return data.base64 ?? '';
+      // v1: { base64 } | v2: { qrcode: { base64 } }
+      return data.base64 ?? data.qrcode?.base64 ?? '';
     } catch {
       return '';
     }
@@ -56,6 +67,15 @@ export class EvolutionAPIProvider implements IWhatsAppProvider {
       { number: phone, text },
       { headers: this.headers },
     );
+  }
+
+  async getPairingCode(instanceName: string, phoneNumber: string): Promise<string> {
+    const { data } = await axios.post(
+      `${this.baseURL}/instance/pairingCode/${instanceName}`,
+      { phoneNumber },
+      { headers: this.headers },
+    );
+    return data.pairingCode ?? data.code ?? '';
   }
 
   async deleteInstance(instanceName: string): Promise<void> {
